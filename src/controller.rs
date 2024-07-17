@@ -300,7 +300,7 @@ pub fn rotate(
                 // Adjust based on window size, so that moving mouse entire width of window
                 // will be one half rotation (180 degrees)
                 let delta_x = mouse_delta.x / primary_window.width() * PI;
-                cam.target_focus.rotate_local_y(-delta_x);
+                cam.target_focus.rotate_local_z(-delta_x);
             } else {
                 let left = if keys.pressed(controller.key_rotate_left) {
                     1.0
@@ -315,7 +315,7 @@ pub fn rotate(
 
                 let delta = right - left;
                 if delta != 0.0 {
-                    cam.target_focus.rotate_local_y(
+                    cam.target_focus.rotate_local_z(
                         delta / primary_window.width() * PI * controller.key_rotate_speed,
                     );
                 }
