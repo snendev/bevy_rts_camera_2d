@@ -126,8 +126,6 @@ Press T to toggle controls (K and L will still work)"
             // height_min: 10.0,
             // Increase max height (decrease min zoom)
             height_max: 50.0,
-            // Change the angle of the camera to 35 degrees
-            min_angle: 35.0f32.to_radians(),
             // Decrease smoothing
             smoothness: 0.1,
             // Change starting position
@@ -140,10 +138,10 @@ Press T to toggle controls (K and L will still work)"
         },
         RtsCameraControls {
             // Change pan controls to WASD
-            key_up: KeyCode::KeyW,
-            key_down: KeyCode::KeyS,
-            key_left: KeyCode::KeyA,
-            key_right: KeyCode::KeyD,
+            key_pan_up: KeyCode::KeyW,
+            key_pan_down: KeyCode::KeyS,
+            key_pan_left: KeyCode::KeyA,
+            key_pan_right: KeyCode::KeyD,
             // Rotate the camera with right click
             button_rotate: MouseButton::Right,
             // Keep the mouse cursor in place when rotating

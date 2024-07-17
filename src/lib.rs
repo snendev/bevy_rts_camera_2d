@@ -1,8 +1,6 @@
 #![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
-use std::f32::consts::TAU;
-
 use bevy::math::bounding::Aabb2d;
 use bevy::prelude::*;
 use bevy_mod_raycast::prelude::{IntersectionData, Raycast, RaycastSettings};
@@ -12,8 +10,6 @@ pub use controller::RtsCameraControls;
 use crate::controller::RtsCameraControlsPlugin;
 
 mod controller;
-
-const MAX_ANGLE: f32 = TAU / 5.0;
 
 /// Bevy plugin that provides RTS camera controls.
 /// # Example
@@ -38,7 +34,6 @@ impl Plugin for RtsCameraPlugin {
                 (
                     follow_ground,
                     snap_to_target,
-                    dynamic_angle,
                     move_towards_target,
                     apply_bounds,
                     update_camera_transform,
@@ -93,28 +88,6 @@ pub struct RtsCamera {
     /// Defaults to `Aabb2d::new(Vec2::ZERO, Vec2::new(20.0, 20.0))` (i.e. can move 20.0 in any
     /// direction starting at world center).
     pub bounds: Aabb2d,
-    /// The current angle in radians of the camera, where a value of `0.0` is looking directly down
-    /// (-Y), and a value of `TAU / 4.0` (90 degrees) is looking directly forward.
-    /// If you want to customise the angle, set `min_angle` instead.
-    /// Defaults to 25 degrees.
-    pub angle: f32,
-    /// The target angle in radians of the camera, where a value of `0.0` is looking directly down
-    /// (-Y), and a value of `TAU / 4.0` (90 degrees) is looking directly forward.
-    /// The camera will smoothly transition from `angle` to `target_angle`.
-    /// If you want to customise the angle, set `min_angle` instead.
-    /// Defaults to 25 degrees.
-    pub target_angle: f32,
-    /// The angle of the camera at no zoom (max height). By default, angle increases as you zoom in.
-    /// If `dynamic_angle` is disabled, then that does not happen and the camera will stay fixed at
-    /// `min_zoom`.
-    /// If you want to customise the angle, this is what you want to change.
-    /// Defaults to 25 degrees.
-    pub min_angle: f32,
-    /// Whether the camera should increase its angle the more you zoom in, so you can see
-    /// characters up close from a sideways view instead of top down.
-    /// If this is
-    /// Defaults to `true`.
-    pub dynamic_angle: bool,
     /// The amount of smoothing applied to the camera movement. Should be a value between `0.0` and
     /// `1.0`. Set to `0.0` to disable smoothing. `1.0` is infinite smoothing (the camera won't
     /// move).
@@ -159,15 +132,11 @@ impl Default for RtsCamera {
             bounds: Aabb2d::new(Vec2::ZERO, Vec2::new(20.0, 20.0)),
             height_min: 2.0,
             height_max: 30.0,
-            angle: 20.0f32.to_radians(),
-            target_angle: 20.0f32.to_radians(),
-            min_angle: 20.0f32.to_radians(),
-            dynamic_angle: true,
             smoothness: 0.3,
             focus: Transform::IDENTITY,
             target_focus: Transform::IDENTITY,
-            zoom: 0.0,
-            target_zoom: 0.0,
+            zoom: 1.0,
+            target_zoom: 1.0,
             snap: false,
         }
     }
@@ -179,7 +148,6 @@ impl RtsCamera {
         self.focus.translation = self.target_focus.translation;
         self.focus.rotation = self.target_focus.rotation;
         self.zoom = self.target_zoom;
-        self.angle = self.target_angle;
     }
 }
 
@@ -197,8 +165,6 @@ fn initialize(mut cam_q: Query<&mut RtsCamera, Added<RtsCamera>>) {
         // translation like snap_to system.
         cam.zoom = cam.target_zoom;
         cam.focus = cam.target_focus;
-        cam.angle = cam.min_angle;
-        cam.target_angle = cam.min_angle;
     }
 }
 
@@ -233,14 +199,6 @@ fn snap_to_target(mut cam_q: Query<&mut RtsCamera>) {
     }
 }
 
-fn dynamic_angle(mut query: Query<&mut RtsCamera>) {
-    for mut cam in query.iter_mut().filter(|cam| cam.dynamic_angle) {
-        cam.target_angle = cam
-            .min_angle
-            .lerp(MAX_ANGLE, ease_in_circular(cam.target_zoom));
-    }
-}
-
 fn move_towards_target(mut cam_q: Query<&mut RtsCamera>, time: Res<Time<Real>>) {
     for mut cam in cam_q.iter_mut() {
         cam.focus.translation = cam.focus.translation.lerp(
@@ -253,10 +211,6 @@ fn move_towards_target(mut cam_q: Query<&mut RtsCamera>, time: Res<Time<Real>>) 
         );
         cam.zoom = cam.zoom.lerp(
             cam.target_zoom,
-            1.0 - cam.smoothness.powi(7).powf(time.delta_seconds()),
-        );
-        cam.angle = cam.angle.lerp(
-            cam.target_angle,
             1.0 - cam.smoothness.powi(7).powf(time.delta_seconds()),
         );
     }
@@ -277,15 +231,15 @@ fn apply_bounds(mut cam_q: Query<&mut RtsCamera>) {
     }
 }
 
-fn update_camera_transform(mut cam_q: Query<(&mut Transform, &RtsCamera)>) {
-    for (mut tfm, cam) in cam_q.iter_mut() {
-        let rotation = Quat::from_rotation_x(cam.angle - 90f32.to_radians());
-        let camera_height = cam.height_max.lerp(cam.height_min, cam.zoom);
-        let camera_offset = camera_height * cam.angle.tan();
+fn update_camera_transform(
+    mut cam_q: Query<(&mut Transform, &mut OrthographicProjection, &RtsCamera)>,
+) {
+    const CAM_OFFSET: f32 = 100.;
 
-        tfm.rotation = cam.focus.rotation * rotation;
-        tfm.translation =
-            cam.focus.translation + (Vec3::Y * camera_height) + (cam.focus.back() * camera_offset);
+    for (mut tfm, mut projection, camera) in cam_q.iter_mut() {
+        tfm.rotation = camera.focus.rotation;
+        tfm.translation = camera.focus.translation + (camera.focus.back() * CAM_OFFSET);
+        projection.scale = camera.zoom;
     }
 }
 
@@ -304,8 +258,4 @@ fn cast_ray<'a>(
         },
     );
     hits1.first().map(|(_, hit)| hit)
-}
-
-fn ease_in_circular(x: f32) -> f32 {
-    1.0 - (1.0 - x.powi(2)).sqrt()
 }

@@ -46,16 +46,16 @@ impl Plugin for RtsCameraControlsPlugin {
 pub struct RtsCameraControls {
     /// The key that will pan the camera up (or forward).
     /// Defaults to `KeyCode::ArrowUp`.
-    pub key_up: KeyCode,
+    pub key_pan_up: KeyCode,
     /// The key that will pan the camera down (or backward).
     /// Defaults to `KeyCode::ArrowDown`.
-    pub key_down: KeyCode,
+    pub key_pan_down: KeyCode,
     /// The key that will pan the camera left.
     /// Defaults to `KeyCode::ArrowLeft`.
-    pub key_left: KeyCode,
+    pub key_pan_left: KeyCode,
     /// The key that will pan the camera right.
     /// Defaults to `KeyCode::ArrowRight`.
-    pub key_right: KeyCode,
+    pub key_pan_right: KeyCode,
     /// The mouse button used to rotate the camera.
     /// Defaults to `MouseButton::Middle`.
     pub button_rotate: MouseButton,
@@ -95,10 +95,10 @@ pub struct RtsCameraControls {
 impl Default for RtsCameraControls {
     fn default() -> Self {
         RtsCameraControls {
-            key_up: KeyCode::ArrowUp,
-            key_down: KeyCode::ArrowDown,
-            key_left: KeyCode::ArrowLeft,
-            key_right: KeyCode::ArrowRight,
+            key_pan_up: KeyCode::ArrowUp,
+            key_pan_down: KeyCode::ArrowDown,
+            key_pan_left: KeyCode::ArrowLeft,
+            key_pan_right: KeyCode::ArrowRight,
             button_rotate: MouseButton::Middle,
             key_rotate_left: KeyCode::KeyQ,
             key_rotate_right: KeyCode::KeyE,
@@ -107,7 +107,7 @@ impl Default for RtsCameraControls {
             button_drag: None,
             lock_on_drag: false,
             edge_pan_width: 0.05,
-            pan_speed: 15.0,
+            pan_speed: 100.0,
             zoom_sensitivity: 1.0,
             enabled: true,
         }
@@ -126,9 +126,8 @@ pub fn zoom(
                 MouseScrollUnit::Pixel => event.y * 0.001,
             })
             .fold(0.0, |acc, val| acc + val);
-        let new_zoom =
-            (cam.target_zoom + zoom_amount * 0.5 * cam_controls.zoom_sensitivity).clamp(0.0, 1.0);
-        cam.target_zoom = new_zoom;
+        let zoom_delta = zoom_amount * 0.5 * cam_controls.zoom_sensitivity;
+        cam.target_zoom = (cam.target_zoom + zoom_delta).clamp(0.5, 4.0);
     }
 }
 
@@ -150,16 +149,16 @@ pub fn pan(
         let mut delta = Vec3::ZERO;
 
         // Keyboard pan
-        if button_input.pressed(controller.key_up) {
+        if button_input.pressed(controller.key_pan_up) {
             delta += Vec3::from(cam.target_focus.forward())
         }
-        if button_input.pressed(controller.key_down) {
+        if button_input.pressed(controller.key_pan_down) {
             delta += Vec3::from(cam.target_focus.back())
         }
-        if button_input.pressed(controller.key_left) {
+        if button_input.pressed(controller.key_pan_left) {
             delta += Vec3::from(cam.target_focus.left())
         }
-        if button_input.pressed(controller.key_right) {
+        if button_input.pressed(controller.key_pan_right) {
             delta += Vec3::from(cam.target_focus.right())
         }
 
